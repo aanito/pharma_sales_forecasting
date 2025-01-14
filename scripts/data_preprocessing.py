@@ -6,8 +6,12 @@ from sklearn.impute import SimpleImputer
 from sklearn.preprocessing import StandardScaler
 import argparse
 from loguru import logger
+from logger import setup_logger
 
-logger.add("../logs/data_preprocessing.log")
+# Set up the logger
+setup_logger()
+
+# logger.add("../logs/data_preprocessing.log")
 
 class OutlierHandler(BaseEstimator, TransformerMixin):
     def __init__(self, columns=None):

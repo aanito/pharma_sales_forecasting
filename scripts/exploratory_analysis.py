@@ -3,8 +3,9 @@ import seaborn as sns
 import matplotlib.pyplot as plt
 import argparse
 from loguru import logger
+from logger import setup_logger
 
-logger.add("../logs/exploratory_analysis.log")
+setup_logger()
 
 def plot_distributions(input_file, output_dir):
     logger.info(f"Loading data from {input_file}")
@@ -91,38 +92,3 @@ if __name__ == "__main__":
     seasonal_analysis(args.input, args.output_dir)
     promo_effect_analysis(args.input, args.output_dir)
     store_analysis(args.input, args.output_dir)
-
-# import pandas as pd
-# import seaborn as sns
-# import matplotlib.pyplot as plt
-# from loguru import logger
-
-# logger.add("../logs/eda.log")
-
-# @logger.catch
-# def plot_distributions(train, test):
-#     logger.info("Plotting distributions...")
-#     sns.histplot(train['Sales'], kde=True)
-#     plt.title('Sales Distribution')
-#     plt.show()
-#     sns.countplot(x='Promo', data=train)
-#     plt.title('Promo Distribution in Training Set')
-#     plt.show()
-#     sns.countplot(x='Promo', data=test)
-#     plt.title('Promo Distribution in Test Set')
-#     plt.show()
-
-# @logger.catch
-# def holiday_sales_analysis(train):
-#     logger.info("Analyzing holiday sales...")
-#     sns.boxplot(x='StateHoliday', y='Sales', data=train)
-#     plt.title('Sales During Holidays')
-#     plt.show()
-
-# @logger.catch
-# def correlation_analysis(train):
-#     logger.info("Analyzing correlation between sales and customers...")
-#     correlation = train[['Sales', 'Customers']].corr()
-#     sns.heatmap(correlation, annot=True)
-#     plt.title('Correlation Heatmap')
-#     plt.show()

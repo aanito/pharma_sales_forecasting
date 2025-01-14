@@ -250,6 +250,9 @@ args = parser.parse_args()
 
     train_model(args.input, args.output)
 
+Additional Analysis
+Step-by-Step Guidance for Exploratory Analysis
+
 1. Checking Distribution in Training and Test Sets
    Script: scripts/distribution_check.py
    import pandas as pd
@@ -458,3 +461,308 @@ parser.add_argument('--output_dir', required=True, help="Directory to save outpu
 args = parser.parse_args()
 
     competitor_distance_analysis(args.input, args.output_dir)
+
+Task 2 - Prediction of Store Sales: Script Development
+Script: Data Preprocessing (Task 2.1)
+Script Name: data_preprocessing.py
+Purpose: Preprocess the data by converting non-numeric columns to numeric, handling missing values, generating new features, and scaling the data.
+import pandas as pd
+import numpy as np
+from sklearn.preprocessing import StandardScaler
+from datetime import datetime
+import argparse
+from loguru import logger
+
+logger.add("../logs/data_preprocessing.log")
+
+def preprocess_data(input_file, output_file):
+try:
+logger.info(f"Loading data from {input_file}")
+df = pd.read_csv(input_file)
+
+        # Handling datetime columns
+        df['Date'] = pd.to_datetime(df['Date'])
+        df['Weekday'] = df['Date'].dt.weekday
+        df['Weekend'] = df['Date'].dt.weekday >= 5
+        df['Month'] = df['Date'].dt.month
+        df['Day'] = df['Date'].dt.day
+        df['IsMonthStart'] = df['Date'].dt.is_month_start
+        df['IsMonthEnd'] = df['Date'].dt.is_month_end
+
+        # Handling missing values
+        df.fillna(0, inplace=True)
+
+        # Scaling numeric features
+        numeric_cols = df.select_dtypes(include=['float64', 'int64']).columns
+        scaler = StandardScaler()
+        df[numeric_cols] = scaler.fit_transform(df[numeric_cols])
+
+        logger.info(f"Saving preprocessed data to {output_file}")
+        df.to_csv(output_file, index=False)
+    except Exception as e:
+        logger.error(f"An error occurred: {e}")
+
+if **name** == "**main**":
+parser = argparse.ArgumentParser(description="Data Preprocessing Script")
+parser.add_argument('--input', required=True, help="Path to input CSV file")
+parser.add_argument('--output', required=True, help="Path to output CSV file")
+args = parser.parse_args()
+
+    preprocess_data(args.input, args.output)
+
+Command to Run:
+python scripts/data_preprocessing.py --input data/raw/train.csv --output data/processed/train_preprocessed.csv
+
+Script: Model Training with Sklearn Pipelines (Task 2.2)
+Script Name: model_training.py
+Purpose: Build a Random Forest Regressor model using sklearn pipelines and save the trained model.
+import pandas as pd
+from sklearn.ensemble import RandomForestRegressor
+from sklearn.pipeline import Pipeline
+from sklearn.model_selection import train_test_split
+from joblib import dump
+import argparse
+from loguru import logger
+
+logger.add("../logs/model_training.log")
+
+def train_model(input_file, output_model):
+try:
+logger.info(f"Loading data from {input_file}")
+df = pd.read_csv(input_file)
+
+        X = df.drop(['Sales'], axis=1)
+        y = df['Sales']
+
+        X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
+
+        pipeline = Pipeline([
+            ('model', RandomForestRegressor(n_estimators=100, random_state=42))
+        ])
+
+        logger.info("Training model")
+        pipeline.fit(X_train, y_train)
+
+        logger.info(f"Saving model to {output_model}")
+        dump(pipeline, output_model)
+    except Exception as e:
+        logger.error(f"An error occurred during model training: {e}")
+
+if **name** == "**main**":
+parser = argparse.ArgumentParser(description="Model Training Script")
+parser.add_argument('--input', required=True, help="Path to input CSV file")
+parser.add_argument('--output_model', required=True, help="Path to output model file")
+args = parser.parse_args()
+
+    train_model(args.input, args.output_model)
+
+Command to Run:
+python scripts/model_training.py --input data/processed/train_preprocessed.csv --output_model models/sales_model.pkl
+
+Script: Loss Function Selection (Task 2.3)
+Script Name: loss_function_selection.py
+Purpose: Select and justify the use of the Mean Squared Error (MSE) loss function for the regression task.
+import numpy as np
+from sklearn.metrics import mean_squared_error
+import argparse
+from loguru import logger
+
+logger.add("../logs/loss_function_selection.log")
+
+def calculate_mse(y_true, y_pred):
+try:
+mse = mean_squared_error(y_true, y_pred)
+logger.info(f"Calculated MSE: {mse}")
+return mse
+except Exception as e:
+logger.error(f"An error occurred: {e}")
+
+if **name** == "**main**":
+parser = argparse.ArgumentParser(description="Loss Function Selection Script")
+parser.add_argument('--true', required=True, nargs='+', type=float, help="True values")
+parser.add_argument('--pred', required=True, nargs='+', type=float, help="Predicted values")
+args = parser.parse_args()
+
+    calculate_mse(np.array(args.true), np.array(args.pred))
+
+Command to Run:
+python scripts/loss_function_selection.py --true 200 250 300 --pred 210 245 290
+
+2.4 Post Prediction Analysis
+Objective: Explore the feature importance from our modeling and estimate the confidence interval of predictions.
+Steps:
+Feature Importance:
+Utilize the feature importance attribute from the Random Forest model to determine which features contributed most to the predictions.
+Confidence Interval Estimation:
+Use bootstrapping to estimate the confidence intervals for predictions.
+Generate multiple samples from the training data, train models on each sample, and calculate the prediction intervals.
+Script: post_prediction_analysis.py
+import pandas as pd
+import numpy as np
+import argparse
+from joblib import load
+from sklearn.utils import resample
+from loguru import logger
+
+logger.add("../logs/post_prediction_analysis.log")
+
+def analyze_feature_importance(model_path, input_file, output_dir):
+try:
+logger.info(f"Loading model from {model_path}")
+model = load(model_path)
+logger.info("Loading data")
+df = pd.read_csv(input_file)
+
+        # Feature importance
+        importance = model.named_steps['model'].feature_importances_
+        feature_names = df.drop(['Sales'], axis=1).columns
+        feature_importance_df = pd.DataFrame({
+            'Feature': feature_names,
+            'Importance': importance
+        }).sort_values(by='Importance', ascending=False)
+        logger.info("Saving feature importance")
+        feature_importance_df.to_csv(f"{output_dir}/feature_importance.csv", index=False)
+
+        # Confidence interval estimation
+        predictions = model.predict(df.drop(['Sales'], axis=1))
+        intervals = bootstrap_confidence_intervals(df.drop(['Sales'], axis=1), model)
+        logger.info("Saving confidence intervals")
+        pd.DataFrame({
+            'Prediction': predictions,
+            'Lower Bound': intervals[:, 0],
+            'Upper Bound': intervals[:, 1]
+        }).to_csv(f"{output_dir}/confidence_intervals.csv", index=False)
+    except Exception as e:
+        logger.error(f"An error occurred: {e}")
+
+def bootstrap*confidence_intervals(X, model, n_bootstrap=1000):
+predictions = []
+for * in range(n_bootstrap):
+sample = resample(X)
+pred = model.predict(sample)
+predictions.append(pred)
+
+    lower_bound = np.percentile(predictions, 2.5, axis=0)
+    upper_bound = np.percentile(predictions, 97.5, axis=0)
+    return np.vstack((lower_bound, upper_bound)).T
+
+if **name** == "**main**":
+parser = argparse.ArgumentParser(description="Post Prediction Analysis")
+parser.add_argument('--model', required=True, help="Path to the trained model")
+parser.add_argument('--input', required=True, help="Path to input CSV file")
+parser.add_argument('--output_dir', required=True, help="Path to output directory")
+args = parser.parse_args()
+
+    analyze_feature_importance(args.model, args.input, args.output_dir)
+
+Command to Run:
+python scripts/post_prediction_analysis.py --model models/sales_prediction_model.pkl --input data/processed/train_cleaned.csv --output_dir reports/post_prediction_analysis
+
+2.5 Serialize Models
+Objective: Serialize the models with a timestamp to enable tracking of predictions from various models.
+Steps:
+Model Serialization:
+Save the trained model with a timestamp in the filename.
+Script: serialize_model.py
+import argparse
+import time
+from joblib import dump
+from loguru import logger
+from sklearn.ensemble import RandomForestRegressor
+from sklearn.pipeline import Pipeline
+
+logger.add("../logs/serialize_model.log")
+
+def serialize*model(model, output_dir):
+try:
+timestamp = time.strftime("%Y-%m-%d-%H-%M-%S")
+model_filename = f"{output_dir}/sales_model*{timestamp}.pkl"
+logger.info(f"Saving model to {model_filename}")
+dump(model, model_filename)
+except Exception as e:
+logger.error(f"An error occurred: {e}")
+
+if **name** == "**main**":
+parser = argparse.ArgumentParser(description="Model Serialization Script")
+parser.add_argument('--output_dir', required=True, help="Path to output directory for serialized model")
+args = parser.parse_args()
+
+    # Assuming a pre-trained pipeline for demonstration
+    model = Pipeline([
+        ('model', RandomForestRegressor(n_estimators=100, random_state=42))
+    ])
+
+    serialize_model(model, args.output_dir)
+
+Command to Run:
+python scripts/serialize_model.py --output_dir models
+
+2.6 Building Model with Deep Learning
+Objective: Build a deep learning model using Long Short Term Memory (LSTM) to predict future sales.
+Steps:
+Data Preparation:
+
+Isolate the dataset into time series data.
+Check for stationarity and perform differencing if necessary.
+Analyze autocorrelation and partial autocorrelation.
+Transform the data into supervised learning format using a sliding window approach.
+Scale the data in the range (-1, 1).
+LSTM Model Construction:
+
+Build a two-layer LSTM model using TensorFlow or PyTorch.
+Train the model on the prepared time series data.
+Script: lstm_sales_prediction.py
+import pandas as pd
+import numpy as np
+import argparse
+import tensorflow as tf
+from sklearn.preprocessing import MinMaxScaler
+from loguru import logger
+
+logger.add("../logs/lstm_sales_prediction.log")
+
+def prepare_data(input_file):
+df = pd.read_csv(input_file)
+df['Date'] = pd.to_datetime(df['Date'])
+df.set_index('Date', inplace=True)
+sales_data = df[['Sales']].astype(float)
+return sales_data
+
+def create_supervised_data(data, look_back=1):
+X, y = [], []
+for i in range(len(data) - look_back):
+X.append(data[i:(i + look_back), 0])
+y.append(data[i + look_back, 0])
+return np.array(X), np.array(y)
+
+def build_lstm_model(input_shape):
+model = tf.keras.Sequential([
+tf.keras.layers.LSTM(50, activation='relu', input_shape=input_shape),
+tf.keras.layers.Dense(1)
+])
+model.compile(optimizer='adam', loss='mean_squared_error')
+return model
+
+if **name** == "**main**":
+parser = argparse.ArgumentParser(description="LSTM Sales Prediction")
+parser.add_argument('--input', required=True, help="Path to input CSV file")
+parser.add_argument('--output_model', required=True, help="Path to output model file")
+args = parser.parse_args()
+
+    sales_data = prepare_data(args.input)
+    scaler = MinMaxScaler(feature_range=(-1, 1))
+    sales_scaled = scaler.fit_transform(sales_data)
+
+    look_back = 10
+    X, y = create_supervised_data(sales_scaled, look_back)
+    X = X.reshape(X.shape[0], X.shape[1], 1)
+
+    model = build_lstm_model((look_back, 1))
+    logger.info("Training LSTM model")
+    model.fit(X, y, epochs=20, batch_size=32, verbose=1)
+
+    logger.info(f"Saving model to {args.output_model}")
+    model.save(args.output_model)
+
+Command to Run:
+python scripts/lstm_sales_prediction.py --input data/processed/train_cleaned.csv --output_model models/lstm_sales_model.h5
